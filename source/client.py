@@ -1,6 +1,6 @@
 # -*- coding: latin-1 -*-
 ############################################################
-####### Author: Onni Hakkari, Updated: 11.05.2017 ##########
+####### Author: Onni Hakkari, Updated: 12.05.2017 ##########
 ################# Website: luckyhacker.com #################
 ############################################################
 import socket, json, time, threading, sys, subprocess
