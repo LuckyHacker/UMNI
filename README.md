@@ -5,7 +5,7 @@ This project is made to provide multiplayer capabilities for games developed wit
 
 ## Usage
 ### Client:
-Client uses 4 files: config.json, local.data, remote.data, config.data.
+Client uses 4 files: config.json, local.data, remote.data and config.data.
 ".data" files are for your game and config.json is config file for client. In this config file you can specify game path and host address (server address).
 #### local.data
 Write your game data in here, which you want to send to other clients.
