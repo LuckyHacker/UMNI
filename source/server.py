@@ -149,16 +149,18 @@ def main():
     s = socket.socket()
     s.bind(address)
     s.listen(5)
-    while True:
-        # Start thread to console
-        adminT = threading.Thread(target=Console, args=[s])
-        adminT.daemon = True
-        adminT.start()
 
-        # Start thread for data distributer
-        dT = threading.Thread(target=Distributer)
-        dT.daemon = True
-        dT.start()
+    # Start thread to console
+    adminT = threading.Thread(target=Console, args=[s])
+    adminT.daemon = True
+    adminT.start()
+
+    # Start thread for data distributer
+    dT = threading.Thread(target=Distributer)
+    dT.daemon = True
+    dT.start()
+    
+    while True:
 
         # Accept connections and add clients to clients list
         try:
