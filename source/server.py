@@ -139,7 +139,7 @@ def Console(ServerSocket):
 
 
 '''
-Main function for starting threads.
+Main function for starting threads and accepting new clients.
 '''
 def main():
     global ID_COUNTER
