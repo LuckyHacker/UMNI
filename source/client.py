@@ -1,13 +1,8 @@
 # -*- coding: latin-1 -*-
-############################################################
-####### Author: Onni Hakkari, Updated: 12.05.2017 ##########
-################# Website: luckyhacker.com #################
-############################################################
+# Author: Onni Hakkari, Website: luckyhacker.com
 import socket, json, time, threading, sys, subprocess
 
-####################################
-###### Global variables start ######
-####################################
+# Global variables start
 global HOST
 global PORT
 global GAME_PATH
@@ -19,9 +14,7 @@ END_TAG = "MSG_END"
 READ_END = 0
 WRITE_END = 0
 
-####################################
-####### Global variables end #######
-####################################
+# Global variables end
 
 '''
 Read config parameters from config file: config.json

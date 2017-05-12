@@ -1,13 +1,8 @@
 # -*- coding: latin-1 -*-
-############################################################
-####### Author: Onni Hakkari, Updated: 12.05.2017 ##########
-################# Website: luckyhacker.com #################
-############################################################
+# Author: Onni Hakkari, Website: luckyhacker.com
 import socket, queue, threading, json, sys, time
 
-####################################
-###### Global variables start ######
-####################################
+# Global variables start
 global HOST
 global PORT
 global TICKRATE
@@ -22,9 +17,7 @@ ID_COUNTER = 0
 IDS = []
 END_TAG = "MSG_END"
 
-####################################
-####### Global variables end #######
-####################################
+# Global variables end
 
 '''
 Handle client:
