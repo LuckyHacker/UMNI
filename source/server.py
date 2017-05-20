@@ -10,7 +10,9 @@ global DATA_TO_FORWARD
 global ID_COUNTER
 global IDS
 global END_TAG
+global DISTRIBUTER_SLEEP
 
+DISTRIBUTER_SLEEP = 0.01 # 0.01 is 100 TICKRATE? TWEAK THIS!!
 CLIENTS = []
 DATA_TO_FORWARD = queue.Queue()
 ID_COUNTER = 0
@@ -40,7 +42,7 @@ class ClientHandler:
                 self.data = str(self.c.recv(4096), "latin-1")
                 latest_data = self.data.split(END_TAG)[-2]
                 if latest_data != "":
-                    DATA_TO_FORWARD.put_nowait(latest_data)
+                    DATA_TO_FORWARD.put_nowait(((self.a[0], str(self.a[1])), latest_data))
             except Exception as e:
                 if self.c in CLIENTS:
                     CLIENTS.remove(self.c)
@@ -100,35 +102,45 @@ def Distributer():
     global DATA_TO_FORWARD
     global CLIENTS
     global END_TAG
+    global DISTRIBUTER_SLEEP
     clients_to_remove = []
     while True:
-        data = ""
+        data = []
+        addrs = []
         if DATA_TO_FORWARD.qsize() > len(CLIENTS):
-            for i in range(len(CLIENTS)):
-                data += DATA_TO_FORWARD.get_nowait()
-            data += END_TAG
 
+            # Gather data from every client (avoid duplicates from one client)
+            for i in range(len(CLIENTS)):
+                a, d = DATA_TO_FORWARD.get_nowait()
+                if a not in addrs:
+                    data.append(d)
+                    addrs.append(a)
+
+            # Try to send data to client
             for i in range(len(CLIENTS)):
                 try:
                     CLIENTS[i].sendall(bytes(data, "Latin-1"))
                 except:
                     clients_to_remove.append(CLIENTS[i])
 
+            # Remove clients that failed to receive data
             for i in range(len(clients_to_remove)):
                 if clients_to_remove[i] in CLIENTS:
                     CLIENTS.remove(clients_to_remove[i])
 
+            # If server does not have client. (it is empty)
             if len(CLIENTS) == 0:
                 ID_COUNTER = 0
                 if DATA_TO_FORWARD.empty() == False:
                     DATA_TO_FORWARD.get_nowait()
 
-        time.sleep(0.01)
+        time.sleep(DISTRIBUTER_SLEEP)
 
 
 '''
 Just ugly fix for port already in use error.
 Could be possible to add other commands also for the the server.
+(Remember to add loop in case of more commands)
 '''
 def Console(ServerSocket):
     command = input("_> ")
@@ -159,7 +171,7 @@ def main():
     dT = threading.Thread(target=Distributer)
     dT.daemon = True
     dT.start()
-    
+
     while True:
 
         # Accept connections and add clients to clients list
