@@ -117,10 +117,18 @@ def Tick(loop_time):
         time.sleep(t)
 
 
+def clear_data_files():
+    with open("local.data", "w+") as f:
+        f.write("")
+
+    with open("remote.data", "w+") as f:
+        f.write("")
+
 '''
 Main function for starting threads and game.
 '''
 def main():
+    clear_data_files()
     global HOST
     global PORT
     global TICKRATE
