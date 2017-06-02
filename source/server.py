@@ -105,7 +105,7 @@ def Distributer():
     global DISTRIBUTER_SLEEP
     clients_to_remove = []
     while True:
-        data = []
+        data = ""
         addrs = []
         if DATA_TO_FORWARD.qsize() > len(CLIENTS):
 
@@ -113,14 +113,16 @@ def Distributer():
             for i in range(len(CLIENTS)):
                 a, d = DATA_TO_FORWARD.get_nowait()
                 if a not in addrs:
-                    data.append(d)
+                    data += d
                     addrs.append(a)
+
+            data = data + END_TAG
 
             # Try to send data to client
             for i in range(len(CLIENTS)):
                 try:
                     CLIENTS[i].sendall(bytes(data, "Latin-1"))
-                except:
+                except Exception as e:
                     clients_to_remove.append(CLIENTS[i])
 
             # Remove clients that failed to receive data
