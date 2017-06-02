@@ -14,7 +14,7 @@ global DISTRIBUTER_SLEEP
 
 DISTRIBUTER_SLEEP = 0.01 # 0.01 is 100 TICKRATE? TWEAK THIS!!
 CLIENTS = []
-DATA_TO_FORWARD = queue.Queue()
+DATA_TO_FORWARD = []
 ID_COUNTER = 0
 IDS = []
 END_TAG = "MSG_END"
@@ -42,9 +42,11 @@ class ClientHandler:
                 self.data = str(self.c.recv(4096), "latin-1")
                 latest_data = self.data.split(END_TAG)[-2]
                 if latest_data != "":
-                    DATA_TO_FORWARD.put_nowait(((self.a[0], str(self.a[1])), latest_data))
+                    with threading.Lock():
+                        DATA_TO_FORWARD.append(((self.a[0], str(self.a[1])), latest_data))
             except Exception as e:
                 if self.c in CLIENTS:
+                    print("Client %s disconnected" % str(self.c))
                     CLIENTS.remove(self.c)
                 break
 
@@ -103,15 +105,20 @@ def Distributer():
     global CLIENTS
     global END_TAG
     global DISTRIBUTER_SLEEP
+    global ID_COUNTER
     clients_to_remove = []
     while True:
         data = ""
         addrs = []
-        if DATA_TO_FORWARD.qsize() > len(CLIENTS):
+        if len(DATA_TO_FORWARD) > len(CLIENTS):
 
             # Gather data from every client (avoid duplicates from one client)
-            for i in range(len(CLIENTS)):
-                a, d = DATA_TO_FORWARD.get_nowait()
+            while True:
+                if len(CLIENTS) == len(addrs):
+                    break
+                if len(DATA_TO_FORWARD) > 0:
+                    with threading.Lock():
+                        a, d = DATA_TO_FORWARD.pop(0)
                 if a not in addrs:
                     data += d
                     addrs.append(a)
@@ -123,6 +130,7 @@ def Distributer():
                 try:
                     CLIENTS[i].sendall(bytes(data, "Latin-1"))
                 except Exception as e:
+                    print("Client %s disconnected because of: %s" % (str(CLIENTS[i]), str(e)))
                     clients_to_remove.append(CLIENTS[i])
 
             # Remove clients that failed to receive data
@@ -133,8 +141,7 @@ def Distributer():
             # If server does not have client. (it is empty)
             if len(CLIENTS) == 0:
                 ID_COUNTER = 0
-                if DATA_TO_FORWARD.empty() == False:
-                    DATA_TO_FORWARD.get_nowait()
+                DATA_TO_FORWARD = []
 
         time.sleep(DISTRIBUTER_SLEEP)
 
