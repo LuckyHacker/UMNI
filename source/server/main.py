@@ -3,7 +3,7 @@
 import threading, sys
 
 from lib.config import Config
-from lib.client import ClientHandler
+from lib.client_models import ClientHandler
 
 '''
 Just ugly fix for port already in use error.

@@ -17,11 +17,14 @@ class ClientHandler:
 
         self.init_distributer()
 
+    def reset_id_counter(self):
+        self.id_counter = 0
+
     def get_server_socket(self):
         return self.socket
 
     def init_distributer(self):
-        self.distributer = Distributer(self.clients, self._lock)
+        self.distributer = Distributer(self.clients, self._lock, self.tickrate, self)
         client_thread = threading.Thread(target=self.distributer.distribute)
         client_thread.daemon = True
         client_thread.start()
@@ -36,6 +39,7 @@ class ClientHandler:
             print("Client connected from %s:%s" % (addr[0], str(addr[1])))
             self.id_counter += 1
             client = Client(conn, addr[0], addr[1], self.id_counter, self._lock)
+            client.sendall(Protocol().get_hello_msg(self.tickrate, client.get_id()))
             self.clients.append(client)
 
             client_listen_thread = threading.Thread(target=self._listen, args=[client])
@@ -43,7 +47,6 @@ class ClientHandler:
             client_listen_thread.start()
 
     def _listen(self, client):
-        client.sendall(Protocol().get_hello_msg(self.tickrate, client.get_id()))
         while True:
             try:
                 client.recv()
@@ -81,22 +84,24 @@ class Client:
     def get_port(self):
         return self.port
 
-    def set_latest_data(self, data):
-        self.latest_data = data
-
     def get_latest_data(self):
         return self.latest_data
 
 
 class Distributer:
 
-    def __init__(self, clients, lock):
+    def __init__(self, clients, lock, tickrate, client_hdl):
         self.clients = clients
         self._lock = lock
-        self.distributer_sleep = 0.01
+        self.tickrate = tickrate
+        self.client_hdl = client_hdl
 
-        self.data_to_send = ""
-        self.addresses = []
+    def tick(self, loop_time):
+        t = 1 / self.tickrate - loop_time
+        if t < 0:
+            pass
+        else:
+            time.sleep(t)
 
     def _get_data_list(self):
         # Get latest data from all clients and delete empty strings if present
@@ -105,18 +110,17 @@ class Distributer:
 
 
     def distribute(self):
-        data_list = self._get_data_list()
         while True:
-            data_to_send = "".join(data_list) + Protocol().get_end_tag()
+            begin = time.time()
+
+            data_list = self._get_data_list()
+            data_to_send = "".join(data_list)
 
             for client in self.clients:
-                if client:
-                    client.sendall(Protocol().get_data_msg(data_to_send))
-                else:
-                    self.clients.remove(client)
+                client.sendall(Protocol().get_data_msg(data_to_send))
 
             # If server is empty
             if len(self.clients) == 0:
-                id_counter = 0
+                self.client_hdl.reset_id_counter()
 
-            time.sleep(self.distributer_sleep)
+            self.tick(time.time() - begin)
