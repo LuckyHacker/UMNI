@@ -1,0 +1,7 @@
+{
+  "Default": {
+    "HOST": "localhost",
+    "PORT": 1234,
+    "TICKRATE": 8
+  }
+}
