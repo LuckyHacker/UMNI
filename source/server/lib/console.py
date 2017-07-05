@@ -1,4 +1,5 @@
-import sys, shutil
+import sys
+import shutil
 
 class Console:
 

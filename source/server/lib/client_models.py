@@ -2,7 +2,7 @@ import threading
 import socket
 import time
 
-from lib.protocol import *
+from lib.protocol import Protocol
 from lib.console import Console
 
 class ClientHandler:
@@ -144,7 +144,11 @@ class Distributer:
             data_to_send = "".join(data_list)
 
             for client in self.clients:
-                client.sendall(Protocol().get_data_msg(data_to_send))
+                client_send_thread = threading.Thread(
+                                target=client.sendall,
+                                args=[Protocol().get_data_msg(data_to_send)])
+                client_send_thread.daemon = True
+                client_send_thread.start()
 
             # If server is empty
             if len(self.clients) == 0:
