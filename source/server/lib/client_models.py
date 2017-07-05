@@ -56,8 +56,9 @@ class ClientHandler:
                                 (addr[0], str(addr[1])))
             self.id_counter += 1
             client = Client(conn, addr[0], addr[1], self.id_counter, self._lock)
-            client.sendall(Protocol().get_hello_msg(self.tickrate,
-                                                    client.get_id()))
+            if client.get_ip() not in self.banned_clients:
+                client.sendall(Protocol().get_hello_msg(self.tickrate,
+                                                        client.get_id()))
             self.clients.append(client)
 
             client_listen_thread = threading.Thread(target=self._listen,
