@@ -12,5 +12,5 @@ class Protocol:
         return self.end_tag
 
     def get_data_msg(self, data):
-        return bytes(str(time.time()) + " " + data +
+        return bytes(str(time.time()) + "#" + data +
                      self.get_end_tag(), "Latin-1")
