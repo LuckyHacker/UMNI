@@ -12,7 +12,7 @@ class ClientHandler:
         self.id_counter = id_counter
         self.conf = conf
         self._lock = lock
-        self.console = Console(self)
+        self.console = Console(self, self._lock)
         self.banned_clients = []
         self.address = (socket.gethostbyname(self.conf.get_host()),
                                              self.conf.get_port())
