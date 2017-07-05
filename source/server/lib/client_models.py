@@ -3,6 +3,7 @@ import socket
 import time
 
 from lib.protocol import *
+from lib.console import Console
 
 class ClientHandler:
 
@@ -11,7 +12,10 @@ class ClientHandler:
         self.id_counter = id_counter
         self.conf = conf
         self._lock = lock
-        self.address = (socket.gethostbyname(self.conf.get_host()), self.conf.get_port())
+        self.console = Console(self)
+        self.banned_clients = []
+        self.address = (socket.gethostbyname(self.conf.get_host()),
+                                             self.conf.get_port())
         self.tickrate = self.conf.get_tickrate()
         self.socket = socket.socket()
 
@@ -23,8 +27,20 @@ class ClientHandler:
     def get_server_socket(self):
         return self.socket
 
+    def get_console(self):
+        return self.console
+
+    def ban_client(self, ip):
+        if ip not in self.banned_clients:
+            self.banned_clients.append(ip)
+
+    def unban_client(self, ip):
+        if ip in self.banned_clients:
+            self.banned_clients.remove(ip)
+
     def init_distributer(self):
-        self.distributer = Distributer(self.clients, self._lock, self.tickrate, self)
+        self.distributer = Distributer(self.clients, self._lock,
+                                       self.tickrate, self)
         client_thread = threading.Thread(target=self.distributer.distribute)
         client_thread.daemon = True
         client_thread.start()
@@ -36,22 +52,29 @@ class ClientHandler:
         while True:
             # Accept connections and add clients to clients list
             conn, addr = self.socket.accept()
-            print("Client connected from %s:%s" % (addr[0], str(addr[1])))
+            self.console.stdout("Client connected from %s:%s" %
+                                (addr[0], str(addr[1])))
             self.id_counter += 1
             client = Client(conn, addr[0], addr[1], self.id_counter, self._lock)
-            client.sendall(Protocol().get_hello_msg(self.tickrate, client.get_id()))
+            client.sendall(Protocol().get_hello_msg(self.tickrate,
+                                                    client.get_id()))
             self.clients.append(client)
 
-            client_listen_thread = threading.Thread(target=self._listen, args=[client])
+            client_listen_thread = threading.Thread(target=self._listen,
+                                                    args=[client])
             client_listen_thread.daemon = True
             client_listen_thread.start()
 
     def _listen(self, client):
         while True:
             try:
+                if client.get_ip() in self.banned_clients:
+                    raise Exception
                 client.recv()
             except Exception as e:
-                print("Client {}:{} has been disconnected.".format(client.get_ip(), client.get_port()))
+                self.console.stdout(
+                    "Client {}:{} has been disconnected.".format(
+                    client.get_ip(),client.get_port()))
                 self.clients.remove(client)
                 break
 
@@ -66,7 +89,10 @@ class Client:
         self.latest_data = ""
 
     def sendall(self, data):
-        self.socket.sendall(data)
+        try:
+            self.socket.sendall(data)
+        except:
+            pass
 
     def recv(self):
         data = str(self.socket.recv(4096), "Latin-1")
@@ -95,11 +121,12 @@ class Distributer:
         self._lock = lock
         self.tickrate = tickrate
         self.client_hdl = client_hdl
+        self.console = self.client_hdl.get_console()
 
     def tick(self, loop_time):
         t = 1 / self.tickrate - loop_time
         if t < 0:
-            pass
+            self.console.stdout("server warning : cannot keep up with tickrate!")
         else:
             time.sleep(t)
 
