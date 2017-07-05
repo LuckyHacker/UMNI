@@ -1,3 +1,5 @@
+import time
+
 class Protocol:
 
     def __init__(self):
@@ -10,4 +12,5 @@ class Protocol:
         return self.end_tag
 
     def get_data_msg(self, data):
-        return bytes(data + self.get_end_tag(), "Latin-1")
+        return bytes(str(time.time()) + "\n" + data +
+                     self.get_end_tag(), "Latin-1")

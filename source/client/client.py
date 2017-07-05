@@ -1,114 +1,133 @@
 # -*- coding: latin-1 -*-
 # Author: Onni Hakkari, Website: luckyhacker.com
-import socket, json, time, threading, sys, subprocess
+import socket
+import json
+import time
+import threading
+import sys
+import subprocess
 
-# Global variables start
+class Config:
 
-end_tag = "MSG_END"
-read_end = 0
-write_end = 0
-
-# Global variables end
-
-'''
-Read config parameters from config file: config.json
-if there is no config.json file, create one.
-'''
-def get_config():
-    global host
-    global port
-    global game_path
-    try:
-        with open("config.json", "r") as f:
-            config = json.loads(f.read())
-    except FileNotFoundError:
-        config = {}
-        config["Default"] = {
-            "HOST": "localhost",
-            "PORT": 1234,
-            "GAME_PATH": "game.exe"
-        }
-        with open("config.json", "w") as f:
-            f.write(json.dumps(config, indent=2, sort_keys=True))
-
-    host = config["Default"].get("HOST")
-    port = config["Default"].get("PORT")
-    game_path = config["Default"].get("GAME_PATH")
-
-
-'''
-Output the read and write loop times.
-'''
-def print_loop_times():
-    global read_end
-    global write_end
-    cursor_up_one = '\x1b[1A'
-    erase_line = '\x1b[2K'
-    sys.stdout.write(erase_line + cursor_up_one + "\r")
-    sys.stdout.write("Read loop time: " + str(read_end) + "s" + "\nWrite loop time: " + str(write_end) + "s")
-    sys.stdout.flush()
-
-
-'''
-Read local.data file TICKRATE times every second and send data to server.
-(Thread keeps looping)
-'''
-def read_local(s):
-    global end_tag
-    global read_end
-    while True:
-        begin = time.time()
+    def __init__(self):
         try:
-            with open("local.data", "rb") as f:
-                data = str(f.read(), "Latin-1")
+            with open("config.json", "r") as f:
+                self.config = json.loads(f.read())
         except FileNotFoundError:
-            with open("local.data", "wb") as f:
-                f.write(bytes("", "Latin-1"))
+            self.config = {}
+            self.config["Default"] = {
+                "HOST": "localhost",
+                "PORT": 1234,
+                "GAME_PATH": "game.exe"
+            }
+            with open("config.json", "w") as f:
+                f.write(json.dumps(self.config, indent=2, sort_keys=True))
+
+    def get_host(self):
+        return self.config["Default"].get("HOST")
+
+    def get_port(self):
+        return self.config["Default"].get("PORT")
+
+    def get_game_path(self):
+        return self.config["Default"].get("GAME_PATH")
+
+
+class LoopTimes:
+
+    def __init__(self):
+        self.read_end = 0
+        self.write_end = 0
+
+    def set_read_end(self, read_end):
+        self.read_end = read_end
+
+    def get_read_end(self):
+        return self.read_end
+
+    def set_write_end(self, write_end):
+        self.write_end = write_end
+
+    def get_write_end(self):
+        return self.write_end
+
+    def print_loop_times(self):
+        cursor_up_one = '\x1b[1A'
+        erase_line = '\x1b[2K'
+        sys.stdout.write(erase_line + cursor_up_one + "\r")
+        sys.stdout.write("Read loop time: " +
+                         str(self.read_end) +
+                         "s" +
+                         "\nWrite loop time: " +
+                         str(self.write_end) +
+                         "s")
+        sys.stdout.flush()
+
+
+class Protocol:
+
+    def __init__(self):
+        self.end_tag = "MSG_END"
+
+    def get_end_tag(self):
+        return self.end_tag
+
+
+class Tick:
+
+    def __init__(self, tickrate):
+        self.tickrate = tickrate
+
+    def tick(self, loop_time):
+        t = 1 / self.tickrate - loop_time
+        if t < 0:
+            pass
+        else:
+            time.sleep(t)
+
+
+class ReadLocal:
+
+    def __init__(self, socket, looptimes, tick):
+        self.socket = socket
+        self.looptimes = looptimes
+        self.tick = tick
+        self.data = ""
+        with open("local.data", "wb") as f:
+            f.write(bytes("", "Latin-1"))
+
+    def read_local_data(self):
+        while True:
+            begin = time.time()
+
             with open("local.data", "rb") as f:
-                data = str(f.read(), "Latin-1")
+                self.data = str(f.read(), "Latin-1")
 
-        s.sendall(bytes(data + end_tag, "Latin-1"))
-        read_end = time.time() - begin
-        print_loop_times()
-        tick(read_end)
+            self.socket.sendall(bytes(self.data + Protocol().get_end_tag(), "Latin-1"))
+            self.looptimes.set_read_end(time.time() - begin)
+            self.looptimes.print_loop_times()
+            self.tick.tick(self.looptimes.get_read_end())
 
+class WriteRemote:
 
-'''
-Write to remote.data file TICKRATE times every second and receive data from server.
-(Thread keeps looping)
-'''
-def write_remote(s):
-    global end_tag
-    global write_end
-
-    while True:
-        begin = time.time()
-        data = str(s.recv(4096), "Latin-1")
-
+    def __init__(self, socket, looptimes, tick):
+        self.socket = socket
+        self.looptimes = looptimes
+        self.tick = tick
+        self.data = ""
         with open("remote.data", "wb") as f:
-            f.write(bytes(data.split(end_tag)[-2], "Latin-1"))
+            f.write(bytes("", "Latin-1"))
 
-        write_end = time.time() - begin
-        tick(write_end)
+    def write_remote_data(self):
+        while True:
+            begin = time.time()
 
+            self.data = str(self.socket.recv(4096), "Latin-1")
+            with open("remote.data", "wb") as f:
+                f.write(bytes(self.data.split(Protocol().get_end_tag())[-2], "Latin-1"))
 
-'''
-Use this function in loop that you want to have tickrate.
-Example:
-while True:
-    begin = time.time()
-
-
-    end = time.time() - begin
-    tick(end)
-'''
-def tick(loop_time):
-    global tickrate
-    t = 1 / tickrate - loop_time
-    if t < 0:
-        pass
-    else:
-        time.sleep(t)
+            self.looptimes.set_write_end(time.time() - begin)
+            self.tick.tick(self.looptimes.get_write_end())
 
 
 def clear_data_files():
@@ -118,15 +137,10 @@ def clear_data_files():
     with open("remote.data", "w+") as f:
         f.write("")
 
-'''
-Main function for starting threads and game.
-'''
 def main():
-    global host
-    global port
-    global tickrate
+    conf = Config()
     clear_data_files()
-    address = (socket.gethostbyname(host), port)
+    address = (socket.gethostbyname(conf.get_host()), conf.get_port())
     s = socket.socket()
 
     try:
@@ -134,30 +148,37 @@ def main():
     except:
         return "Cannot establish connection to server: %s" % str(address)
 
-    # Get used tickrate and ID for client (player ID)
-    settings = str(s.recv(128), "Latin-1")
-    tickrate, ID = (int(settings.split("#")[0]), settings.split("#")[1])
+    # Get tickrate and ID for client (player ID)
+    settings = str(s.recv(128), "Latin-1").split("#")
+    tickrate, client_id = (int(settings[0]), settings[1])
     print("TICKRATE: " + str(tickrate) + "\n")
 
-    # Write player ID to config.data file. Your game needs to read it from there as soon it starts.
+    # Write player ID to config.data file.
+    # Your game needs to read it from there as soon it starts.
     with open("config.data", "w") as f:
-        f.write(ID)
+        f.write(client_id)
 
-    # Start thread for reading local.data file and sending its content to server
-    read_local_thread = threading.Thread(target=read_local, args=[s])
+    looptimes = LoopTimes()
+    tick = Tick(tickrate)
+    readlocal = ReadLocal(s, looptimes, tick)
+    writeremote = WriteRemote(s, looptimes, tick)
+
+    # Start thread for reading local.data file and
+    # sending its content to server
+    read_local_thread = threading.Thread(target=readlocal.read_local_data)
     read_local_thread.daemon = True
     read_local_thread.start()
 
-    # Start thread for receiving data from server and writing it to remote.data file
-    write_remote_thread = threading.Thread(target=write_remote, args=[s])
+    # Start thread for receiving data from server and
+    # writing it to remote.data file
+    write_remote_thread = threading.Thread(target=writeremote.write_remote_data)
     write_remote_thread.daemon = True
     write_remote_thread.start()
 
-    # Start game and wait it to shutdown. When game is shut down, this script will also.
-    subprocess.check_call(game_path)
+    # Start game and wait it to shutdown.
+    # When game is shut down, this script will also.
+    subprocess.check_call(conf.get_game_path())
 
 if __name__ == "__main__":
-    get_config()
     output = main()
-    if output != None:
-        print(output)
+    if output: print(output)
